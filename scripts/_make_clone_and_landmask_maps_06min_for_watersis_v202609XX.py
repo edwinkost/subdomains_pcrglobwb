@@ -41,6 +41,17 @@ def spatialInterpolation2PCR(fieldArray, pcrType, MV):
 		field = pcr.areamajority(field,zoneID)
 	return field
 
+def spatialInterpolationPCRMap(field, pcrType):
+	#-interpolates the field array to the full extent
+	field = field
+	cellID = pcr.nominal(pcr.uniqueid(pcr.defined(field)))
+	zoneID = pcr.spreadzone(cellID,0,1)
+	if pcrType == pcr.Scalar:
+		field = pcr.areaaverage(field,zoneID)
+	else:
+		field = pcr.areamajority(field,zoneID)
+	return field
+
 def define_landmask(input_file, clone_map_file, output_map_file):
 
     # define the landmask based on the input     
@@ -138,7 +149,7 @@ def main():
     print("read global subdomain file") 
     global_subdomain_map = vos.readPCRmapClone(v = global_subdomain_file, cloneMapFileName = global_ldd_inp_file, tmpDir = tmp_folder, absolutePath = None, isLddMap = False, cover = None, isNomMap = True)
     # - extrapolate it to cover the global extent
-    global_subdomain_map = spatialInterpolation2PCR(fieldArray = global_subdomain_map, pcrType = pcr.Nominal, MV =  vos.MV)
+    global_subdomain_map = spatialInterpolationPCRMap(global_subdomain_map, pcrType = pcr.Nominal)
 
     # set initial subdomain
     print("assign subdomains to all catchments") 
