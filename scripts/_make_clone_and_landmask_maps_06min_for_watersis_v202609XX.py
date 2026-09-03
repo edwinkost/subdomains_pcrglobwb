@@ -71,9 +71,11 @@ def define_landmask(input_file, clone_map_file, output_map_file):
 # ~ global_ldd_inp_file   = "/scratch/depfg/sutan101/data/updating_reservoirs_lakes/version_202010330/05min/global/maps/netcdf_and_ldd/lddsound_05min_version_20210330.map"
 global_ldd_inp_file       = "/scratch/depfg/sutan101/data/watersis_landmask_etc/v20260902_created_by_edwin/ldd/ldd_global_pcrglobwb_mask_0p1_v20260902_created_by_edwin_3600x1800.map"
 
-# global subdomain file
-# ~ global_subdomain_file = "/scratch/depfg/sutan101/data/make_global_subdomains/version_2021-02-17/general_subdomains_using_threshold_of_25_cells/global_subdomains_30min_final_filled.map"
-global_subdomain_file     = "/scratch/depfg/sutan101/data/make_global_subdomains/version_2021-02-17/general_subdomains_using_threshold_of_50_cells/global_subdomains_30min_final_filled.map"
+# initial/estimate of global subdomain file
+#~ global_subdomain_file = "/scratch/depfg/sutan101/data/make_global_subdomains/version_2021-02-17/general_subdomains_using_threshold_of_25_cells/global_subdomains_30min_final_filled.map"
+#~ global_subdomain_file = "/scratch/depfg/sutan101/data/make_global_subdomains/version_2021-02-17/general_subdomains_using_threshold_of_50_cells/global_subdomains_30min_final_filled.map"
+# - using the one from the Ulysses project
+global_subdomain_file    = "/scratch/depfg/sutan101/data/pcrglobwb_input_ulysses/clone_maps/subdomains/version_2020-09-XX/global_landmask_river_and_land_mask_all.map"
 
 # output_folder
 out_folder                = "/scratch/depfg/sutan101/make_global_subdomains_for_watersis/version_2026-09-03/general_subdomains_using_threshold_of_50_cells/06min/"
@@ -135,7 +137,8 @@ def main():
     # read global subdomain file
     print("read global subdomain file") 
     global_subdomain_map = vos.readPCRmapClone(v = global_subdomain_file, cloneMapFileName = global_ldd_inp_file, tmpDir = tmp_folder, absolutePath = None, isLddMap = False, cover = None, isNomMap = True)
-
+    # - extrapolate it to cover the global extent
+    global_subdomain_map = spatialInterpolation2PCR(fieldArray = global_subdomain_map, pcrType = pcr.Nominal, MV =  vos.MV)
 
     # set initial subdomain
     print("assign subdomains to all catchments") 
