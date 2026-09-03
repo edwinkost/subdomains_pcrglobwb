@@ -66,6 +66,34 @@ netcdf_suffixes = ('.nc4','.nc')
 
 # maximum number of tries for reading files:
 max_num_of_tries = 5
+# ~ # - set it to infinity - NOT RECOMMENDED
+# ~ max_num_of_tries = float("inf")
+
+
+def aguila_with_var_name(pcr_field, file_name, tmp_directory = None):
+
+    if tmp_directory is not None: file_name = tmp_directory + "/" + file_name + ".tmp.map"
+    
+    # save the variable to a pcraster file and visualize it using aguila
+    pcr.report(pcr_field, file_name)
+    # - using os.system
+    cmd = "aguila " + str(file_name) + " & "
+    os.system(cmd)
+    # ~ # - using subprocess
+    # ~ cmd = "aguila " + str(file_name)
+    # ~ print(cmd)
+    # ~ proc = subprocess.Popen([cmd], shell = True,
+                                   # ~ stdin = None, stdout = None, stderr = None, close_fds = True)
+    
+    # ~ # remove the pcraster file - WE CANNOT DO THIS!!! (as the files will still be open/active)
+    # ~ cmd = 'rm ' + file_name
+    # ~ os.system(cmd)
+    
+
+def get_var_name(var):
+    for name, value in globals().items():
+        if value is var:
+            return name
 
 def getFileList(inputDir, filePattern):
     '''creates a dictionary of  files meeting the pattern specified'''
@@ -128,23 +156,26 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
     #     Only works if cells are 'square'.
     #     Only works if cellsizeClone <= cellsizeInput
     # Get netCDF file and variable name:
-    if ncFile in list(filecache.keys()):
-        f = filecache[ncFile]
-        #~ print "Cached: ", ncFile
-    else:
-        f = nc.Dataset(ncFile)
-        filecache[ncFile] = f
-        #~ print "New: ", ncFile
+
+    # - for file without time steps, we should close it (as most likely, it will be used once only). 
+    #~ if ncFile in list(filecache.keys()):
+        #~ f = filecache[ncFile]
+        #~ # print "Cached: ", ncFile
+    #~ else:
+        #~ f = nc.Dataset(ncFile)
+        #~ filecache[ncFile] = f
+        #~ # print "New: ", ncFile
     
-    #print ncFile
-    #f = nc.Dataset(ncFile)  
+    # print ncFile
+    
+    f = nc.Dataset(ncFile)  
     varName = str(varName)
     
     if varName == "automatic":
         nc_dims = [dim for dim in f.dimensions]
         nc_vars = [var for var in f.variables]
         for var in nc_vars:                   
-            if var not in nc_dims: varName = var
+            if var not in nc_dims and var not in ["lat", "lon", "latitude", "longitude", "y", "x"]: varName = var
         logger.debug('reading variable: '+str(varName)+' from the file: '+str(ncFile))
 
     if LatitudeLongitude == True:
@@ -152,7 +183,12 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
             f.variables['lat'] = f.variables['latitude']
             f.variables['lon'] = f.variables['longitude']
         except:
-            pass
+            try: 
+                f.variables['lat'] = f.variables['y']
+                f.variables['lon'] = f.variables['x']
+            except:
+                pass
+            # ~ pass
     
     sameClone = True
     # check whether clone and input maps have the same attributes:
@@ -187,7 +223,7 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
         # crop to cloneMap:
         minX    = min(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput))) # ; print(minX)
 
-        xIdxSta = int(np.where(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput)) == minX)[0])
+        xIdxSta = int(np.where(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput)) == minX)[0][0])
 
         #~ xIdxSta = int(np.where(np.abs(f.variables['lon'][:] - (xULClone - cellsizeInput/2)) == minX)[0][0])
         #~ # see: https://github.com/UU-Hydro/PCR-GLOBWB_model/pull/13
@@ -197,7 +233,7 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
 
         minY    = min(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput))) # ; print(minY)
 
-        yIdxSta = int(np.where(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput)) == minY)[0])
+        yIdxSta = int(np.where(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput)) == minY)[0][0])
 
         #~ yIdxSta = int(np.where(np.abs(f.variables['lat'][:] - (yULClone - cellsizeInput/2)) == minY)[0][0])
         #~ # see: https://github.com/UU-Hydro/PCR-GLOBWB_model/pull/13
@@ -240,8 +276,11 @@ def singleTryNetcdf2PCRobjCloneWithoutTime(ncFile, varName,\
     #~ print(varName)
     #~ os.system('aguila tmp.map')
     
-    #f.close();
+    # we should close the file
+    f.close();
+
     f = None ; cropData = None 
+
     # PCRaster object
     return (outPCR)
 
@@ -302,13 +341,19 @@ def singleTryNetcdf2PCRobjClone_version_until_2020_07_14(ncFile,\
             f.variables['lat'] = f.variables['latitude']
             f.variables['lon'] = f.variables['longitude']
         except:
-            pass
+            try: 
+                f.variables['lat'] = f.variables['y']
+                f.variables['lon'] = f.variables['x']
+            except:
+                pass
+            # ~ pass
+            
 
     if varName == "automatic":
         nc_dims = [dim for dim in f.dimensions]
         nc_vars = [var for var in f.variables]
         for var in nc_vars:                   
-            if var not in nc_dims: varName = var
+            if var not in nc_dims and var not in ["lat", "lon", "latitude", "longitude", "y", "x"]: varName = var
         logger.debug('reading variable: '+str(varName)+' from the file: '+str(ncFile))
     
     if varName == "evapotranspiration":        
@@ -502,11 +547,11 @@ def singleTryNetcdf2PCRobjClone_version_until_2020_07_14(ncFile,\
         # crop to cloneMap:
         #~ xIdxSta = int(np.where(f.variables['lon'][:] == xULClone + 0.5*cellsizeInput)[0])
         minX    = min(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput))) # ; print(minX)
-        xIdxSta = int(np.where(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput)) == minX)[0])
+        xIdxSta = int(np.where(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput)) == minX)[0][0])
         xIdxEnd = int(math.ceil(xIdxSta + colsClone /(cellsizeInput/cellsizeClone)))
         #~ yIdxSta = int(np.where(f.variables['lat'][:] == yULClone - 0.5*cellsizeInput)[0])
         minY    = min(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput))) # ; print(minY)
-        yIdxSta = int(np.where(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput)) == minY)[0])
+        yIdxSta = int(np.where(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput)) == minY)[0][0])
         yIdxEnd = int(math.ceil(yIdxSta + rowsClone /(cellsizeInput/cellsizeClone)))
 
         # retrieve data from netCDF for slice
@@ -589,16 +634,21 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
     
     if LatitudeLongitude == True:
         try:
-            f.variables['lat'] = f.variables['latitude']
-            f.variables['lon'] = f.variables['longitude']
+            f.variables['lat'] = f.variables['y']
+            f.variables['lon'] = f.variables['x']
         except:
-            pass
+            try: 
+                f.variables['lat'] = f.variables['latitude']
+                f.variables['lon'] = f.variables['longitude']
+            except:
+                pass
+            # ~ pass
 
     if varName == "automatic":
         nc_dims = [dim for dim in f.dimensions]
         nc_vars = [var for var in f.variables]
         for var in nc_vars:                   
-            if var not in nc_dims: varName = var
+            if var not in nc_dims and var not in ["lat", "lon", "latitude", "longitude"]: varName = var
         logger.debug('reading variable: '+str(varName)+' from the file: '+str(ncFile))
     
     if varName == "evapotranspiration":        
@@ -683,7 +733,7 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
                 date  = datetime.datetime(date.year,int(1),int(1))
             if useDoy == "monthly":
                 date = datetime.datetime(date.year,date.month,int(1))
-            if useDoy == "yearly" or useDoy == "monthly" or useDoy == "daily_seasonal" or useDoy == "daily":
+            if useDoy == "yearly" or useDoy == "monthly" or useDoy == "daily_seasonal" or useDoy == "daily" or useDoy == "daily_per_monthly_file":
                 # if the desired year is not available, use the first year or the last year that is available
                 first_year_in_nc_file = findFirstYearInNCTime(f.variables['time'])
                 last_year_in_nc_file  =  findLastYearInNCTime(f.variables['time'])
@@ -776,15 +826,15 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
         if yULClone != yULInput: sameClone = False
 
 
-    #~ # check data on dimensions - this correction is needed in case of the WFDEI_Forcing which has includes levels for surface varables (time, height/level, lat, lon)
-    #~ if f.variables[varName].ndim == 4:
-        #~ # not standard NC format
-        #~ logger.warning('WARNING: the netCDF file %s has an additional dimension for variable %s ; the last two are read as latitude, longitude' % (ncFile, varName))
-        #~ # file with additional layer/dimension
-        #~ cropData = f.variables[varName][int(idx),0,:,:]       # still original data
-    #~ else:
-        #~ # standard nc file
-        #~ cropData = f.variables[varName][int(idx),:,:]       # still original data
+    # check data on dimensions - this correction is needed in case of the WFDEI_Forcing which has includes levels for surface varables (time, height/level, lat, lon)
+    if f.variables[varName].ndim == 4:
+        # not standard NC format
+        logger.warning('WARNING: the netCDF file %s has an additional dimension for variable %s ; the last two are read as latitude, longitude' % (ncFile, varName))
+        # file with additional layer/dimension
+        cropData = f.variables[varName][int(idx),0,:,:]     # still original data
+    else:
+        # standard nc file
+        cropData = f.variables[varName][int(idx),:,:]       # still original data
 
 
     factor = 1                                 # needed in regridData2FinerGrid
@@ -795,7 +845,7 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
         # crop to cloneMap:
         minX    = min(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput))) # ; print(minX)
 
-        xIdxSta = int(np.where(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput)) == minX)[0])
+        xIdxSta = int(np.where(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput)) == minX)[0][0])
 
         #~ xIdxSta = int(np.where(np.abs(f.variables['lon'][:] - (xULClone - cellsizeInput/2)) == minX)[0][0])
         #~ # see: https://github.com/UU-Hydro/PCR-GLOBWB_model/pull/13
@@ -805,7 +855,7 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
 
         minY    = min(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput))) # ; print(minY)
 
-        yIdxSta = int(np.where(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput)) == minY)[0])
+        yIdxSta = int(np.where(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput)) == minY)[0][0])
 
         #~ yIdxSta = int(np.where(np.abs(f.variables['lat'][:] - (yULClone - cellsizeInput/2)) == minY)[0][0])
         #~ # see: https://github.com/UU-Hydro/PCR-GLOBWB_model/pull/13
@@ -858,7 +908,19 @@ def singleTryNetcdf2PCRobjClone(ncFile,\
     #~ pcr.aguila(outPCR)
     
     #f.close();
+    
+    if useDoy == "daily_per_monthly_file": 
+        # close the file on the last day of the month
+        tomorrow = date + datetime.timedelta(days=1)
+        if tomorrow.day == 1: 
+            # close the file
+            f.close()
+            # remove from the cache
+            del filecache[ncFile]
+    
+    del f ; del cropData
     f = None ; cropData = None 
+    
     # PCRaster object
     return (outPCR)
 
@@ -1062,11 +1124,11 @@ def netcdf2PCRobjCloneBeforeRensCorrection(
         # crop to cloneMap:
         #~ xIdxSta = int(np.where(f.variables['lon'][:] == xULClone + 0.5*cellsizeInput)[0])
         minX    = min(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput))) # ; print(minX)
-        xIdxSta = int(np.where(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput)) == minX)[0])
+        xIdxSta = int(np.where(abs(f.variables['lon'][:] - (xULClone + 0.5*cellsizeInput)) == minX)[0][0])
         xIdxEnd = int(math.ceil(xIdxSta + colsClone /(cellsizeInput/cellsizeClone)))
         #~ yIdxSta = int(np.where(f.variables['lat'][:] == yULClone - 0.5*cellsizeInput)[0])
         minY    = min(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput))) # ; print(minY)
-        yIdxSta = int(np.where(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput)) == minY)[0])
+        yIdxSta = int(np.where(abs(f.variables['lat'][:] - (yULClone - 0.5*cellsizeInput)) == minY)[0][0])
         yIdxEnd = int(math.ceil(yIdxSta + rowsClone /(cellsizeInput/cellsizeClone)))
         #~ cropData = f.variables[varName][idx,yIdxSta:yIdxEnd,xIdxSta:xIdxEnd]
         cropData = cropData[yIdxSta:yIdxEnd,xIdxSta:xIdxEnd]
@@ -1311,10 +1373,10 @@ def netcdf2PCRobjCloneJOYCE(ncFile,varName,dateInput,\
         logger.debug('Crop to the clone map with lower left corner (x,y): '+str(xULClone)+' , '+str(yULClone))
         # crop to cloneMap:
         minX    = min(abs(longitude[:] - (xULClone + 0.5*cellsizeInput))) # ; print(minX)
-        xIdxSta = int(np.where(abs(longitude[:] - (xULClone + 0.5*cellsizeInput)) == minX)[0])
+        xIdxSta = int(np.where(abs(longitude[:] - (xULClone + 0.5*cellsizeInput)) == minX)[0][0])
         xIdxEnd = int(math.ceil(xIdxSta + colsClone /(cellsizeInput/cellsizeClone)))
         minY    = min(abs(latitude[:] - (yULClone - 0.5*cellsizeInput))) # ; print(minY)
-        yIdxSta = int(np.where(abs(latitude[:] - (yULClone - 0.5*cellsizeInput)) == minY)[0])
+        yIdxSta = int(np.where(abs(latitude[:] - (yULClone - 0.5*cellsizeInput)) == minY)[0][0])
         yIdxEnd = int(math.ceil(yIdxSta + rowsClone /(cellsizeInput/cellsizeClone)))
         cropData = cropData[yIdxSta:yIdxEnd,xIdxSta:xIdxEnd]
 
@@ -1391,9 +1453,9 @@ def netcdf2PCRobjCloneWindDist(ncFile,varName,dateInput,useDoy = None,
     factor = 1                          # needed in regridData2FinerGrid
     if sameClone == False:
         # crop to cloneMap:
-        xIdxSta = int(np.where(f.variables['lon'][:] == xULClone + 0.5*cellsizeInput)[0])
+        xIdxSta = int(np.where(f.variables['lon'][:] == xULClone + 0.5*cellsizeInput)[0][0])
         xIdxEnd = int(math.ceil(xIdxSta + colsClone /(cellsizeInput/cellsizeClone)))
-        yIdxSta = int(np.where(f.variables['lat'][:] == yULClone - 0.5*cellsizeInput)[0])
+        yIdxSta = int(np.where(f.variables['lat'][:] == yULClone - 0.5*cellsizeInput)[0][0])
         yIdxEnd = int(math.ceil(yIdxSta + rowsClone /(cellsizeInput/cellsizeClone)))
         cropData = f.variables[varName][idx,yIdxSta:yIdxEnd,xIdxSta:xIdxEnd]
         factor = int(float(cellsizeInput)/float(cellsizeClone))
@@ -1460,9 +1522,9 @@ def netcdf2PCRobjCloneWind(ncFile,varName,dateInput,useDoy = None,
     factor = 1                          # needed in regridData2FinerGrid
     if sameClone == False:
         # crop to cloneMap:
-        xIdxSta = int(np.where(f.variables['lon'][:] == xULClone + 0.5*cellsizeInput)[0])
+        xIdxSta = int(np.where(f.variables['lon'][:] == xULClone + 0.5*cellsizeInput)[0][0])
         xIdxEnd = int(math.ceil(xIdxSta + colsClone /(cellsizeInput/cellsizeClone)))
-        yIdxSta = int(np.where(f.variables['lat'][:] == yULClone - 0.5*cellsizeInput)[0])
+        yIdxSta = int(np.where(f.variables['lat'][:] == yULClone - 0.5*cellsizeInput)[0][0])
         yIdxEnd = int(math.ceil(yIdxSta + rowsClone /(cellsizeInput/cellsizeClone)))
         cropData = f.variables[varName][idx,yIdxSta:yIdxEnd,xIdxSta:xIdxEnd]
         factor = int(float(cellsizeInput)/float(cellsizeClone))
@@ -1553,15 +1615,22 @@ def singleTryReadPCRmapClone(v, cloneMapFileName, tmpDir, absolutePath = None, i
         
             logger.debug('read netcdf file: '+str(v))
             
-            #~ PCRmap = netcdf2PCRobjClone(ncFile = v,\
-                                        #~ varName = "automatic",\
-                                        #~ dateInput = None,\
-                                        #~ useDoy = None, \
-                                        #~ cloneMapFileName = cloneMapFileName)
+            try:
+                # read netcdf file without time
+                PCRmap = netcdf2PCRobjCloneWithoutTime(ncFile = v,\
+                                                       varName = "automatic",\
+                                                       cloneMapFileName = cloneMapFileName)
+            except:
+                # read netcdf file with time
+                PCRmap = netcdf2PCRobjClone(ncFile = v,\
+                                            varName = "automatic",\
+                                            dateInput = None,\
+                                            useDoy = None, \
+                                            cloneMapFileName = cloneMapFileName)
 
-            PCRmap = netcdf2PCRobjCloneWithoutTime(ncFile = v,\
-                                                   varName = "automatic",\
-                                                   cloneMapFileName = cloneMapFileName)
+                # ~ PCRmap = netcdf2PCRobjCloneWithoutTime(ncFile = v,\
+                                                       # ~ varName = "automatic",\
+                                                       # ~ cloneMapFileName = cloneMapFileName)
 
         else:
             
